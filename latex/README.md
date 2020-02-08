@@ -13,3 +13,9 @@ docker run -it --rm -v $(pwd):/var/local ssledz/pdflatex:latest make
 ```
 docker run -it --rm -v $(pwd):/var/local ssledz/pdflatex:latest buid sample.tex
 ```
+
+## pushing to docker hub
+```
+docker login
+docker push ssledz/pdflatex:latest
+```
