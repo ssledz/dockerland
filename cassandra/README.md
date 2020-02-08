@@ -10,3 +10,8 @@ docker run -it --rm --name cassandra \
 ```bash
 docker exec -it cassandra cqlsh
 ```
+
+## checking cassandra ready
+```bash
+nc -zv localhost 1234; echo $?
+```
