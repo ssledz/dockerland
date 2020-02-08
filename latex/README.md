@@ -1,8 +1,7 @@
-# version
+# pdflatex version
 ```
 docker run -it --rm ssledz/pdflatex:latest
 ```
-
 
 ## building using Makefile
 
