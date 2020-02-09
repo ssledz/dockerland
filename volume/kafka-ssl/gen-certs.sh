@@ -13,12 +13,12 @@ set -o nounset \
 
 # Generate CA key
 openssl req -new -x509 -keyout snakeoil-ca-1.key -out snakeoil-ca-1.crt -days 365 \
-  -subj '/CN=kafka/OU=None/O=None/L=Warsaw/S=Warsaw/C=PL' -passin pass:$PASSWORD -passout pass:$PASSWORD
+  -subj '/CN=kafka.docker.ssl/OU=None/O=None/L=Warsaw/S=Warsaw/C=PL' -passin pass:$PASSWORD -passout pass:$PASSWORD
 
 # Kafkacat
 openssl genrsa -des3 -passout "pass:$PASSWORD" -out kafkacat.client.key 1024
 openssl req -passin "pass:$PASSWORD" -passout "pass:$PASSWORD" -key kafkacat.client.key -new \
-  -out kafkacat.client.req -subj '/CN=kafka/OU=None/O=None/L=Warsaw/S=Warsaw/C=PL'
+  -out kafkacat.client.req -subj '/CN=kafka.docker.ssl/OU=None/O=None/L=Warsaw/S=Warsaw/C=PL'
 openssl x509 -req -CA snakeoil-ca-1.crt -CAkey snakeoil-ca-1.key -in kafkacat.client.req \
   -out kafkacat-ca1-signed.pem -days 9999 -CAcreateserial -passin "pass:$PASSWORD"
 
@@ -30,7 +30,7 @@ do
   # Create keystores
   keytool -genkey -noprompt \
     -alias $i \
-    -dname "CN=kafka, OU=TEST, O=CONFLUENT, L=PaloAlto, S=Ca, C=US" \
+    -dname "CN=$i.test.$PASSWORD.io, OU=TEST, O=CONFLUENT, L=PaloAlto, S=Ca, C=US" \
     -keystore kafka.$i.keystore.jks \
     -keyalg RSA \
     -storepass $PASSWORD \
