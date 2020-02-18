@@ -1,0 +1,30 @@
+[
+	{
+		"url": "localhost:8094/user",
+		"method": "post",
+		"payload": {
+			"username" : "gabi",
+			"age": 3
+		}
+	},
+	{
+		"url": "localhost:8094/user/1",
+		"method": "put",
+		"payload": {
+			"username" : "yuri",
+			"age": 13
+		}
+	},
+	{
+		"url": "localhost:8094/user/1",
+		"method": "get"
+	},
+	{
+		"url": "localhost:8094/user/2"
+	},
+	{
+		"url": "localhost:8094/home",
+		"method": "head"
+	}
+
+]
