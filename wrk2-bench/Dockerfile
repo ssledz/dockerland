@@ -12,6 +12,7 @@ RUN apk --update add --virtual build-dependencies alpine-sdk curl openssl-dev zl
 FROM alpine:3.10.2
 RUN apk --update add libgcc
 COPY --from=builder /go/build/wrk2/wrk /usr/bin/
+COPY json.lua /usr/local/share/lua/5.1/
 WORKDIR /
 ENV LANG C.UTF-8
 CMD ["/usr/bin/wrk", "--help"]

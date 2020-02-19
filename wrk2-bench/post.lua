@@ -1,9 +1,13 @@
+json = require "json"
+
 math.randomseed(os.time())
 
 function string:split(sep)
     local sep, fields = sep or ":", {}
     local pattern = string.format("([^%s]+)", sep)
-    self:gsub(pattern, function(c) fields[#fields + 1] = c end)
+    self:gsub(pattern, function(c)
+        fields[#fields + 1] = c
+    end)
     return fields
 end
 
@@ -19,24 +23,32 @@ function shuffle(paths)
     return paths
 end
 
-function loadRequests(file)
+function load_requests(file)
     local fp = io.open(file, "r")
-    local lines = fp:read("*all")
+    local rqs = json.decode(fp:read("*all"))
     io.close(fp)
-    local brs = string.split(lines, "\n")
-    return shuffle(brs), #brs
+    for _, req in ipairs(rqs) do
+        if req.payload then
+            local payload = json.encode(req.payload)
+            req.post = {
+                payload = payload,
+                size = #{ string.byte(payload, 1, -1) }
+            }
+        end
+    end
+    return shuffle(rqs), #rqs
 end
 
 fileOut = "out.json"
 local threads = {}
 
-function parseArgs(args)
+function parse_args(args)
     for i, arg in pairs(args) do
         if arg == "-f" then
-            fileIn =  args[i + 1]
+            fileIn = args[i + 1]
         end
         if arg == "-o" then
-            fileOut =  args[i + 1]
+            fileOut = args[i + 1]
         end
     end
 end
@@ -50,18 +62,29 @@ function init(args)
     responseNoBid = 0
     responseBidOk = 0
     responseAll = 0
-    parseArgs(args)
-    brs, brsCount = loadRequests(fileIn)
-    print("Reading " .. fileIn .. " (" .. brsCount .. " bid requests)")
-    wrk.headers["Content-Type"] = "Content-Type: application/json"
+    parse_args(args)
+    rqs, rqsCount = load_requests(fileIn)
+    print("Reading " .. fileIn .. " (" .. rqsCount .. " requests)")
 end
 
 function request()
     counter = counter + 1
-    local br = brs[1 + counter % brsCount]
-    local size = #{ string.byte(br, 1, -1) }
-    wrk.headers["Content-Length"] = size
-    return wrk.format("POST", null, null, br)
+    local req = rqs[1 + counter % rqsCount]
+
+    local body
+    local method = req.method or "GET"
+    if req.post then
+        body = req.post.payload
+        wrk.headers["Content-Length"] = req.post.size
+        wrk.headers["Content-Type"] = "application/json"
+    end
+
+    for _, h in ipairs(req.headers or {}) do
+        wrk.headers[h.key:upper()] = h.value
+
+    end
+
+    return wrk.format(method:upper(), req.url, null, body)
 end
 
 function done(summary, latency, requests)
@@ -112,28 +135,27 @@ function done(summary, latency, requests)
         all = all + thread:get("responseAll")
     end
 
-
     local bidOkRatio = bidOk / all
 
     local json = string.format(template,
-        b,
-        r,
-        d,
-        latency.mean,
-        latency.stdev,
-        latency.min,
-        latency.max,
-        latency:percentile(50),
-        latency:percentile(75),
-        latency:percentile(90),
-        latency:percentile(99),
-        latency:percentile(99.999),
-        r2d,
-        b2d,
-        noBid,
-        bidOk,
-        all,
-        bidOkRatio
+            b,
+            r,
+            d,
+            latency.mean,
+            latency.stdev,
+            latency.min,
+            latency.max,
+            latency:percentile(50),
+            latency:percentile(75),
+            latency:percentile(90),
+            latency:percentile(99),
+            latency:percentile(99.999),
+            r2d,
+            b2d,
+            noBid,
+            bidOk,
+            all,
+            bidOkRatio
     )
 
     local thread = threads[1]
