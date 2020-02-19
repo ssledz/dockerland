@@ -2,13 +2,44 @@ json = require "json"
 
 math.randomseed(os.time())
 
-function string:split(sep)
-    local sep, fields = sep or ":", {}
-    local pattern = string.format("([^%s]+)", sep)
-    self:gsub(pattern, function(c)
-        fields[#fields + 1] = c
-    end)
-    return fields
+function table.copy(xs)
+    local ys = {}
+    for k, v in pairs(xs) do
+        ys[k] = v
+    end
+    return ys
+end
+
+function table.to_string(xs)
+
+    local str = ""
+    for k, v in pairs(xs or {}) do
+        str = str .. tostring(k) .. " = " .. tostring(v) .. ", "
+    end
+    if #str == 0 then
+        return xs and "[]" or "null"
+    else
+        return "[" .. str:sub(0, -3) .. "]"
+    end
+end
+
+function table.swap(xs)
+    local ys = {}
+    for k, v in pairs(xs) do
+        ys[v] = k
+    end
+    return ys
+end
+
+function table.merge(xs, ys, f)
+
+    local zs = table.copy(xs)
+
+    for k, v in pairs(ys) do
+        zs[k] = f(zs[k], v)
+    end
+
+    return zs
 end
 
 function shuffle(paths)
@@ -39,7 +70,7 @@ function load_requests(file)
     return shuffle(rqs), #rqs
 end
 
-fileOut = "out.json"
+file_out = "out.json"
 local threads = {}
 
 function parse_args(args)
@@ -48,7 +79,7 @@ function parse_args(args)
             fileIn = args[i + 1]
         end
         if arg == "-o" then
-            fileOut = args[i + 1]
+            file_out = args[i + 1]
         end
     end
 end
@@ -59,10 +90,8 @@ end
 
 function init(args)
     counter = 0
-    responseNoBid = 0
-    responseBidOk = 0
-    responseAll = 0
     parse_args(args)
+    response_status = {}
     rqs, rqsCount = load_requests(fileIn)
     print("Reading " .. fileIn .. " (" .. rqsCount .. " requests)")
 end
@@ -88,93 +117,48 @@ function request()
 end
 
 function done(summary, latency, requests)
-    local r = summary.requests
-    local d = summary.duration
-    local b = summary.bytes
-    local b2d = 1000000.0 * b / d / 1024
-    local r2d = 1000000.0 * r / d
 
-    local template = [[
-        {
-                "bytes"    : "%d",
-                "requests" : "%d",
-                "duration" : "%d",
-                "latency"      : {
-                        "mean"  : "%f",
-                        "stdev" : "%f",
-                        "min"   : "%f",
-                        "max"   : "%f",
-                        "percentile" : {
-                                "p50" : "%f",
-                                "p75" : "%f",
-                                "p90" : "%f",
-                                "p99" : "%f",
-                                "p99_999" : "%f"
-                        }
-                },
-                "velocity_per_s" : {
-                        "requests" : "%f",
-                        "kbytes" : "%f"
-                },
-                "bidding" : {
-                        "noBid"        : "%d",
-                        "bidOk"        : "%d",
-                        "all"          : "%d",
-                        "bidOkRatio"   : "%f"
-                }
-        }
-        ]]
-
-    local noBid = 0
-    local bidOk = 0
-    local all = 0
+    local status = {}
 
     for _, thread in ipairs(threads) do
-        bidOk = bidOk + thread:get("responseBidOk")
-        noBid = noBid + thread:get("responseNoBid")
-        all = all + thread:get("responseAll")
+        local t_status = table.swap(thread:get("response_status")) -- work around ;don't know why key and value are swapped
+        status = table.merge(status, t_status, function(x, y)
+            return (x or 0) + (y or 0)
+        end)
     end
 
-    local bidOkRatio = bidOk / all
-
-    local json = string.format(template,
-            b,
-            r,
-            d,
-            latency.mean,
-            latency.stdev,
-            latency.min,
-            latency.max,
-            latency:percentile(50),
-            latency:percentile(75),
-            latency:percentile(90),
-            latency:percentile(99),
-            latency:percentile(99.999),
-            r2d,
-            b2d,
-            noBid,
-            bidOk,
-            all,
-            bidOkRatio
-    )
+    local stats = {
+        bytes = summary.bytes,
+        requests = summary.requests,
+        duration_us = summary.duration,
+        latency_us = {
+            mean = latency.mean,
+            stdev = latency.stdev,
+            min = latency.min,
+            max = latency.max,
+            percentile = {
+                p50 = latency:percentile(50),
+                p75 = latency:percentile(75),
+                p90 = latency:percentile(90),
+                p99 = latency:percentile(99),
+                p99_999 = latency:percentile(99.999)
+            }
+        },
+        velocity_s = {
+            requests = 1000000.0 * summary.requests / summary.duration,
+            kbytes = 1000000.0 * summary.bytes / summary.duration / 1024
+        },
+        status = status
+    }
 
     local thread = threads[1]
-    local fileOut = thread:get("fileOut")
+    local fileOut = thread:get("file_out")
     print("\nWriting report to " .. fileOut)
     local fp = io.open(fileOut, "w")
-    fp:write(json)
+    fp:write(json.encode(stats))
 end
 
 function response(status, headers, body)
-
-    if status == 204 then
-        responseNoBid = responseNoBid + 1
-    end
-
-    if status == 200 then
-        responseBidOk = responseBidOk + 1
-    end
-
-    responseAll = responseAll + 1
-
+    local idx = "http_" .. tostring(status)
+    response_status[idx] = (response_status[idx] or 0) + 1
 end
