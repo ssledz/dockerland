@@ -11,8 +11,12 @@ RUN apk --update add --virtual build-dependencies alpine-sdk curl openssl-dev zl
 
 FROM alpine:3.10.2
 RUN apk --update add libgcc
+ENV LANG C.UTF-8
 COPY --from=builder /go/build/wrk2/wrk /usr/bin/
 COPY json.lua /usr/local/share/lua/5.1/
+COPY do-test.lua /opt/wrk/scripts/
+COPY docker-entrypoint.sh /docker-entrypoint.sh
 WORKDIR /
-ENV LANG C.UTF-8
-CMD ["/usr/bin/wrk", "--help"]
+CMD ["wrk", "--help"]
+ONBUILD ENTRYPOINT ["/docker-entrypoint.sh"]
+ONBUILD COPY . /opt/wrk/test

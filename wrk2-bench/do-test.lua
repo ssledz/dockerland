@@ -71,12 +71,13 @@ function load_requests(file)
 end
 
 file_out = "out.json"
+file_in = "in.json"
 local threads = {}
 
 function parse_args(args)
     for i, arg in pairs(args) do
         if arg == "-f" then
-            fileIn = args[i + 1]
+            file_in = args[i + 1]
         end
         if arg == "-o" then
             file_out = args[i + 1]
@@ -92,8 +93,8 @@ function init(args)
     counter = 0
     parse_args(args)
     response_status = {}
-    rqs, rqsCount = load_requests(fileIn)
-    print("Reading " .. fileIn .. " (" .. rqsCount .. " requests)")
+    rqs, rqsCount = load_requests(file_in)
+    print("Reading " .. file_in .. " (" .. rqsCount .. " requests)")
 end
 
 function request()
