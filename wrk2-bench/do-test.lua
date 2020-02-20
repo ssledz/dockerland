@@ -102,18 +102,19 @@ function request()
 
     local body
     local method = req.method or "GET"
+    local headers = {}
     if req.post then
         body = req.post.payload
-        wrk.headers["Content-Length"] = req.post.size
-        wrk.headers["Content-Type"] = "application/json"
+        headers["Content-Length"] = req.post.size
+        headers["Content-Type"] = "application/json"
     end
 
     for _, h in ipairs(req.headers or {}) do
-        wrk.headers[h.key:upper()] = h.value
+        headers[h.key:upper()] = h.value
 
     end
 
-    return wrk.format(method:upper(), req.url, null, body)
+    return wrk.format(method:upper(), req.url, headers, body)
 end
 
 function done(summary, latency, requests)
